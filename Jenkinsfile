@@ -20,11 +20,7 @@ pipeline {
 
         stage('Verify Java & Maven') {
             steps {
-
-                export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk
-                export PATH=$JAVA_HOME/bin:/opt/maven/bin:$PATH
-                echo "JAVA_HOME=$JAVA_HOME"
-                sh 'echo "JAVA_HOME=$JAVA_HOME"'
+                sh 'echo "JAVA_HOME=$JAVA_HOME"
                 sh 'java -version'
                 sh 'mvn -version'
             }
