@@ -1,5 +1,5 @@
 pipeline {
-    gent { label 'built-in' } 
+    agent { label 'built-in' } 
 
     environment {
         
