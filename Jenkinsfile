@@ -2,9 +2,9 @@ pipeline {
     agent { label 'docker1' }  // Host VM agent label
 
     environment {
-        // Use host VM Java & Maven
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${PATH}"
+        // Use Temurin 21 explicitly
+        JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk'
+        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${env.PATH}"
 
         // Docker image info
         IMAGE_NAME = 'todo-springboot-app'
