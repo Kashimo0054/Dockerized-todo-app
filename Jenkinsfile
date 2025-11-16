@@ -1,35 +1,23 @@
 pipeline {
-    agent { label 'docker1' }  // your Jenkins agent label
+    agent { label 'docker1' }
+
+    tools {
+        jdk 'JDK21'   // Name of the JDK configured in Jenkins global tool configuration
+        maven 'Maven3.9.5'  // Optional, if you installed Maven as Jenkins tool
+    }
 
     environment {
-        // Java & Maven paths
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${PATH}"
-
-        // Docker image info
         IMAGE_NAME = 'todo-springboot-app'
         IMAGE_TAG = "v${BUILD_NUMBER}"
-
-        // Artifactory configuration
         ARTIFACTORY_SERVER_ID = 'bitwranglers'
-        ARTIFACTORY_URL = 'https://bitwranglers.jfrog.io/artifactory'
         ARTIFACTORY_REPO = 'docker-repo'
         ARTIFACTORY_CREDENTIALS = 'jfrog-creds'
     }
 
     stages {
-
-        stage('Verify Java & Maven') {
-            steps {
-                sh 'java -version'
-                sh 'mvn -version'
-            }
-        }
-
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Kashimo0054/Dockerized-todo-app.git'
+                git branch: 'main', url: 'https://github.com/Kashimo0054/Dockerized-todo-app.git'
             }
         }
 
@@ -41,9 +29,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh """
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                """
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
@@ -59,20 +45,14 @@ pipeline {
 
         stage('Deploy with Docker Compose') {
             steps {
-                sh """
-                    docker compose down || true
-                    docker compose up -d --build
-                """
+                sh 'docker compose down || true'
+                sh 'docker compose up -d --build'
             }
         }
     }
 
     post {
-        success {
-            echo "🎉 Deployment Successful!"
-        }
-        failure {
-            echo "❌ Build Failed — check the logs."
-        }
+        success { echo "🎉 Deployment Successful!" }
+        failure { echo "❌ Build Failed — check the logs." }
     }
 }
