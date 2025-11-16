@@ -1,8 +1,8 @@
 pipeline {
-    agent { label 'docker1' }  // Host VM agent label
+    agent { label 'docker1' }
 
     environment {
-        // Use Temurin 21 explicitly (correct path)
+        // Use Temurin 21 explicitly
         JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk-amd64'
         PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${env.PATH}"
 
@@ -10,9 +10,8 @@ pipeline {
         IMAGE_NAME = 'todo-springboot-app'
         IMAGE_TAG = "v${BUILD_NUMBER}"
 
-        // Artifactory config
-        ARTIFACTORY_SERVER_ID = 'bitwranglers'
-        ARTIFACTORY_URL = 'https://bitwranglers.jfrog.io/artifactory'
+        // Artifactory info
+        ARTIFACTORY_URL = 'bitwranglers.jfrog.io'
         ARTIFACTORY_REPO = 'docker-repo'
     }
 
@@ -52,10 +51,22 @@ pipeline {
 
         stage('Push Docker Image to Artifactory') {
             steps {
-                script {
-                    def server = Artifactory.server(ARTIFACTORY_SERVER_ID)
-                    def rtDocker = Artifactory.docker(server: server)
-                    rtDocker.push("${IMAGE_NAME}:${IMAGE_TAG}", ARTIFACTORY_REPO)
+                withCredentials([usernamePassword(credentialsId: 'artifactory-cred', 
+                                                  usernameVariable: 'ART_USER', 
+                                                  passwordVariable: 'ART_PASS')]) {
+                    sh """
+                        echo "Logging into Artifactory..."
+                        echo $ART_PASS | docker login ${ARTIFACTORY_URL} -u $ART_USER --password-stdin
+
+                        echo "Tagging Docker image..."
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+
+                        echo "Pushing Docker image..."
+                        docker push ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+
+                        echo "Logging out..."
+                        docker logout ${ARTIFACTORY_URL}
+                    """
                 }
             }
         }
