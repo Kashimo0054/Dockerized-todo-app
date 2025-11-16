@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    environment {
+        JFROG_SERVER_ID = 'jfrog-cloud'                // Your JFrog server ID in Jenkins
+        DOCKER_REPO = 'docker-local'                   // Name of your docker repo in JFrog
+        IMAGE_NAME = 'todo-springboot-app'             // Any name you want for your image
+        IMAGE_TAG = "v${BUILD_NUMBER}"                 // Auto versioning
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/<your-username>/<your-repo>.git'
+            }
+        }
+
+        stage('Build Maven Project') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                """
+            }
+        }
+
+        stage('Push Docker Image to Artifactory') {
+            steps {
+                script {
+                    def server = Artifactory.server(JFROG_SERVER_ID)
+                    def rtDocker = Artifactory.docker(server: server)
+
+                    rtDocker.push(
+                        "${IMAGE_NAME}:${IMAGE_TAG}",
+                        DOCKER_REPO
+                    )
+                }
+            }
+        }
+
+        stage('Deploy with Docker Compose') {
+            steps {
+                sh """
+                    docker compose down || true
+                    docker compose up -d --build
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🎉 Deployment Successful!"
+        }
+        failure {
+            echo "❌ Build Failed — check the logs."
+        }
+    }
+}

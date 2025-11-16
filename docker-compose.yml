@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.4.5
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: todoapp
+      MYSQL_USER: todo
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: springboot-app
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/todoapp
+      SPRING_DATASOURCE_USERNAME: todo
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:
