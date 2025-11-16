@@ -1,13 +1,14 @@
 pipeline {
-    agent { label 'docker1' }
+    agent { label 'docker1' }  // your Jenkins agent label
 
     environment {
+        // Java & Maven paths
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${PATH}"
+
+        // Docker image info
         IMAGE_NAME = 'todo-springboot-app'
         IMAGE_TAG = "v${BUILD_NUMBER}"
-
-        // Correct JAVA_HOME
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "${JAVA_HOME}/bin:/usr/share/maven/bin:${PATH}"
 
         // Artifactory configuration
         ARTIFACTORY_SERVER_ID = 'bitwranglers'
@@ -40,7 +41,9 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh """
+                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                """
             }
         }
 
@@ -49,7 +52,6 @@ pipeline {
                 script {
                     def server = Artifactory.server(ARTIFACTORY_SERVER_ID)
                     def rtDocker = Artifactory.docker(server: server)
-
                     rtDocker.push("${IMAGE_NAME}:${IMAGE_TAG}", ARTIFACTORY_REPO)
                 }
             }
