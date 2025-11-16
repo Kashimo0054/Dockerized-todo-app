@@ -1,21 +1,19 @@
 pipeline {
-    agent { label 'docker1' }
-
-    tools {
-        jdk 'temurin-21'   // Use the actual JDK name in Jenkins
-        // Maven is optional if you use system Maven, otherwise configure Maven in Jenkins tools
-        // maven 'MAVEN_HOME'  // Uncomment if you added Maven tool in Jenkins
-    }
+    agent { label 'docker1' } // Replace with your agent label
 
     environment {
-        IMAGE_NAME = 'todo-springboot-app'
-        IMAGE_TAG = "v${BUILD_NUMBER}"
-        ARTIFACTORY_SERVER_ID = 'bitwranglers'
-        ARTIFACTORY_REPO = 'docker-repo'
-        ARTIFACTORY_CREDENTIALS = 'jfrog-creds'
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64' // system JDK 21 path
+        PATH = "${JAVA_HOME}/bin:/opt/maven/bin:${env.PATH}" // Add Java & Maven to PATH
     }
 
     stages {
+        stage('Verify Java & Maven') {
+            steps {
+                sh 'java -version'
+                sh 'mvn -version'
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Kashimo0054/Dockerized-todo-app.git'
@@ -30,30 +28,40 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh '''
+                docker build -t my-todo-app:latest .
+                '''
             }
         }
 
         stage('Push Docker Image to Artifactory') {
             steps {
-                script {
-                    def server = Artifactory.server(ARTIFACTORY_SERVER_ID)
-                    def rtDocker = Artifactory.docker(server: server)
-                    rtDocker.push("${IMAGE_NAME}:${IMAGE_TAG}", ARTIFACTORY_REPO)
+                withCredentials([usernamePassword(credentialsId: 'jfrog-creds', passwordVariable: 'JF_PASSWORD', usernameVariable: 'JF_USER')]) {
+                    sh '''
+                    docker login -u $JF_USER -p $JF_PASSWORD https://bitwranglers.jfrog.io/artifactory/docker-repo
+                    docker tag my-todo-app:latest bitwranglers.jfrog.io/docker-repo/my-todo-app:latest
+                    docker push bitwranglers.jfrog.io/docker-repo/my-todo-app:latest
+                    '''
                 }
             }
         }
 
         stage('Deploy with Docker Compose') {
             steps {
-                sh 'docker compose down || true'
-                sh 'docker compose up -d --build'
+                sh '''
+                docker-compose down
+                docker-compose up -d
+                '''
             }
         }
     }
 
     post {
-        success { echo "🎉 Deployment Successful!" }
-        failure { echo "❌ Build Failed — check the logs." }
+        success {
+            echo '✅ Build and deployment succeeded!'
+        }
+        failure {
+            echo '❌ Build failed — check the logs.'
+        }
     }
 }
