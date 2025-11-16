@@ -2,6 +2,10 @@ pipeline {
     agent { label 'docker1' }  // Host VM agent label
 
     environment {
+        // Use Temurin 21 explicitly (correct path)
+        JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk-amd64'
+        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${env.PATH}"
+
         // Docker image info
         IMAGE_NAME = 'todo-springboot-app'
         IMAGE_TAG = "v${BUILD_NUMBER}"
@@ -17,15 +21,8 @@ pipeline {
         stage('Verify Java & Maven') {
             steps {
                 sh '''
-                    # Use Temurin 21 explicitly
-                    export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk
-                    export PATH=$JAVA_HOME/bin:/opt/maven/bin:$PATH
-
                     echo "JAVA_HOME=$JAVA_HOME"
-                    which java
                     java -version
-
-                    which mvn
                     mvn -version
                 '''
             }
@@ -40,11 +37,7 @@ pipeline {
 
         stage('Build Maven Project') {
             steps {
-                sh '''
-                    export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk
-                    export PATH=$JAVA_HOME/bin:/opt/maven/bin:$PATH
-                    mvn clean package -DskipTests
-                '''
+                sh 'mvn clean package -DskipTests'
             }
         }
 
