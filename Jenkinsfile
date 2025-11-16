@@ -2,8 +2,9 @@ pipeline {
     agent { label 'docker1' }
 
     tools {
-        jdk 'JDK21'   // Name of the JDK configured in Jenkins global tool configuration
-        maven 'Maven3.9.5'  // Optional, if you installed Maven as Jenkins tool
+        jdk 'temurin-21'   // Use the actual JDK name in Jenkins
+        // Maven is optional if you use system Maven, otherwise configure Maven in Jenkins tools
+        // maven 'MAVEN_HOME'  // Uncomment if you added Maven tool in Jenkins
     }
 
     environment {
