@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'agent1' }
+    agent { label 'docker1' }
 
     environment {
         IMAGE_NAME = 'todo-springboot-app'
