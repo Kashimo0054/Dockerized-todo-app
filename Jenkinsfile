@@ -1,29 +1,30 @@
-
-
 pipeline {
-    agent { label 'built-in' } 
+    agent { label 'docker1' }  // Host VM agent label
 
     environment {
-        
-        IMAGE_NAME = 'todo-springboot-app'             // Any name you want for your image
-        IMAGE_TAG = "v${BUILD_NUMBER}"                 // Auto versioning
-        // Maven and JDK paths (optional if Jenkins already has them configured globally)
-        JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk-amd64'
-        PATH = "${JAVA_HOME}/bin:/usr/share/maven/bin:${PATH}"
+        // Use host VM Java & Maven
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${PATH}"
 
-        // Artifactory configuration
-        ARTIFACTORY_SERVER_ID = 'bitwranglers'        // any name you like
+        // Docker image info
+        IMAGE_NAME = 'todo-springboot-app'
+        IMAGE_TAG = "v${BUILD_NUMBER}"
+
+        // Artifactory config
+        ARTIFACTORY_SERVER_ID = 'bitwranglers'
         ARTIFACTORY_URL = 'https://bitwranglers.jfrog.io/artifactory'
-        ARTIFACTORY_REPO = 'docker-repo'                    // replace with your actual Maven repo key
-        ARTIFACTORY_CREDENTIALS = 'jfrog-creds'       // Jenkins credentials ID for JFrog user/pass
-
-
-
-
-
+        ARTIFACTORY_REPO = 'docker-repo'
     }
 
     stages {
+
+        stage('Verify Java & Maven') {
+            steps {
+                sh 'echo "JAVA_HOME=$JAVA_HOME"'
+                sh 'java -version'
+                sh 'mvn -version'
+            }
+        }
 
         stage('Checkout Code') {
             steps {
@@ -41,6 +42,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh """
+                    echo "Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}"
                     docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
                 """
             }
@@ -49,13 +51,9 @@ pipeline {
         stage('Push Docker Image to Artifactory') {
             steps {
                 script {
-                    def server = Artifactory.server(JFROG_SERVER_ID)
+                    def server = Artifactory.server(ARTIFACTORY_SERVER_ID)
                     def rtDocker = Artifactory.docker(server: server)
-
-                    rtDocker.push(
-                        "${IMAGE_NAME}:${IMAGE_TAG}",
-                        DOCKER_REPO
-                    )
+                    rtDocker.push("${IMAGE_NAME}:${IMAGE_TAG}", ARTIFACTORY_REPO)
                 }
             }
         }
@@ -63,7 +61,9 @@ pipeline {
         stage('Deploy with Docker Compose') {
             steps {
                 sh """
+                    echo "Stopping existing containers if any..."
                     docker compose down || true
+                    echo "Starting containers..."
                     docker compose up -d --build
                 """
             }
