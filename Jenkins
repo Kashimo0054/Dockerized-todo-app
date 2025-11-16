@@ -2,10 +2,23 @@ pipeline {
     agent any
 
     environment {
-        JFROG_SERVER_ID = 'jfrog-cloud'                // Your JFrog server ID in Jenkins
-        DOCKER_REPO = 'docker-local'                   // Name of your docker repo in JFrog
+        
         IMAGE_NAME = 'todo-springboot-app'             // Any name you want for your image
         IMAGE_TAG = "v${BUILD_NUMBER}"                 // Auto versioning
+        // Maven and JDK paths (optional if Jenkins already has them configured globally)
+        JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk-amd64'
+        PATH = "${JAVA_HOME}/bin:/usr/share/maven/bin:${PATH}"
+
+        // Artifactory configuration
+        ARTIFACTORY_SERVER_ID = 'bitwranglers'        // any name you like
+        ARTIFACTORY_URL = 'https://bitwranglers.jfrog.io/artifactory'
+        ARTIFACTORY_REPO = 'docker-repo'                    // replace with your actual Maven repo key
+        ARTIFACTORY_CREDENTIALS = 'jfrog-creds'       // Jenkins credentials ID for JFrog user/pass
+
+
+
+
+
     }
 
     stages {
@@ -13,7 +26,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/<your-username>/<your-repo>.git'
+                    url: 'https://github.com/Kashimo0054/Dockerized-todo-app.git'
             }
         }
 
