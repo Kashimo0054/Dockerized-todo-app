@@ -19,6 +19,9 @@ services:
     container_name: springboot-app
     ports:
       - "8084:8084"
+    depends_on:
+      - mysql-container
+
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/todoapp
       SPRING_DATASOURCE_USERNAME: todo
