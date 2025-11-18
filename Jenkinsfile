@@ -1,32 +1,23 @@
 pipeline {
     agent { label 'docker1' }
-
+    
     environment {
-        // Use Temurin 21 explicitly
-        JAVA_HOME = '/usr/lib/jvm/temurin-21-jdk-amd64'
-        PATH = "/opt/maven/bin:${JAVA_HOME}/bin:${env.PATH}"
-
-        // Docker image info
-        IMAGE_NAME = 'todo-springboot-app'
-        IMAGE_TAG = "v${BUILD_NUMBER}"
-
-        // Artifactory info
-        ARTIFACTORY_URL = 'bitwranglers.jfrog.io'
-        ARTIFACTORY_REPO = 'docker-repo'
+        JAVA_HOME         = '/usr/lib/jvm/temurin-21-jdk-amd64'
+        PATH              = "/opt/maven/bin:${JAVA_HOME}/bin:${env.PATH}"
+        
+        IMAGE_NAME        = 'todo-springboot-app'
+        IMAGE_TAG         = "v${BUILD_NUMBER}"
+        IMAGE_LATEST      = 'latest'
+        
+        ARTIFACTORY_URL   = 'bitwranglers.jfrog.io'
+        ARTIFACTORY_REPO  = 'docker-repo'
+        
+        SONAR_HOST_URL    = 'http://SonarQube-Docker:9000'
+        SONAR_PROJECT_KEY = 'todo-with-junit'
+        SONAR_LOGIN = credentials('sonarqube-token')   // store token in Jenkins credentials
     }
 
     stages {
-
-        stage('Verify Java & Maven') {
-            steps {
-                sh '''
-                    echo "JAVA_HOME=$JAVA_HOME"
-                    java -version
-                    mvn -version
-                '''
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
@@ -34,61 +25,83 @@ pipeline {
             }
         }
 
-        stage('Build Maven Project') {
+        stage('Verify Tools') {
+            steps {
+                sh '''
+                    java -version
+                    mvn -version
+                    docker --version
+                '''
+            }
+        }
+
+        stage('Build with Maven') {
             steps {
                 sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube-Docker') {
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        sh '''
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                              -Dsonar.host.url=${SONAR_HOST_URL} \
+                              -Dsonar.login=${SONAR_LOGIN}
+                        '''
+                    }
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 sh """
-                    echo "Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}"
                     docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:${IMAGE_LATEST}
                 """
             }
         }
 
-        stage('Push Docker Image to Artifactory') {
+        stage('Push to Artifactory') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'artifactory-cred', 
-                                                  usernameVariable: 'ART_USER', 
-                                                  passwordVariable: 'ART_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'artifactory-cred',
+                    usernameVariable: 'ART_USER',
+                    passwordVariable: 'ART_PASS'
+                )]) {
                     sh """
-                        echo "Logging into Artifactory..."
                         echo $ART_PASS | docker login ${ARTIFACTORY_URL} -u $ART_USER --password-stdin
 
-                        echo "Tagging Docker image..."
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
+                            ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag ${IMAGE_NAME}:${IMAGE_LATEST} \
+                            ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_LATEST}
 
-                        echo "Pushing Docker image..."
                         docker push ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_LATEST}
 
-                        echo "Logging out..."
                         docker logout ${ARTIFACTORY_URL}
                     """
                 }
-            }
-        }
-
-        stage('Deploy with Docker Compose') {
-            steps {
-                sh """
-                    echo "Stopping existing containers if any..."
-                    docker compose down || true
-                    echo "Starting containers..."
-                    docker compose up -d --build
-                """
             }
         }
     }
 
     post {
         success {
-            echo "🎉 Deployment Successful!"
+            echo "CI Completed Successfully!"
+            echo "Image available at:"
+            echo "${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:latest"
         }
         failure {
-            echo "❌ Build Failed — check the logs."
+            echo "CI Failed – No image was pushed"
+        }
+        always {
+            cleanWs()  // optional: keep agents clean
         }
     }
 }
