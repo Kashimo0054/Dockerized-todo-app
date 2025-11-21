@@ -66,8 +66,7 @@ pipeline {
 
                     while (tries < 10) {
                         def status = sh(
-                            script: "curl -s -o /dev/null -w '%{http_code}' http://springboot-app:8084/actuator/health"
-",
+                            script: "curl -s -o /dev/null -w '%{http_code}' http://springboot-app:8084/actuator/health",
                             returnStdout: true
                         ).trim()
 
