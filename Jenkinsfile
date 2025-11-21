@@ -66,7 +66,7 @@ pipeline {
 
                     while (tries < 10) {
                         def status = sh(
-                            script: "curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8084/",
+                            script: 'curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8084/',
                             returnStdout: true
                         ).trim()
 
