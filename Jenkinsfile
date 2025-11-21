@@ -5,7 +5,7 @@ pipeline {
         ARTIFACTORY_URL  = "bitwranglers.jfrog.io"
         ARTIFACTORY_REPO = "docker-repo"
         IMAGE_NAME       = "todo-springboot-app"
-        DEPLOY_PATH      = "/home/jenkins-agent/deploy/todoapp"
+        DEPLOY_PATH      = "/home/jenkins-agent/deploy/todoapp"   // where compose runs
     }
 
     stages {
@@ -65,9 +65,8 @@ pipeline {
                     def healthy = false
 
                     while (tries < 10) {
-
                         def status = sh(
-                            script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:8084/",
+                            script: "curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8084/",
                             returnStdout: true
                         ).trim()
 
